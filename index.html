@@ -1,0 +1,610 @@
+<html lang="en"><head>
+	<meta charset="UTF-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>DC</title>
+</head>
+
+<body cz-shortcut-listen="true">
+
+<pre>	
+----------------- BANKERS
+
+def main():
+    processes = int(input("number of processes : "))
+    resources = int(input("number of resources : "))
+    max_resources = [int(i) for i in input("maximum resources : ").split()]
+
+    print("\n-- allocated resources for each process --")
+    currently_allocated = [[int(i) for i in input(f"process {j + 1} : ").split()] for j in range(processes)]
+
+    print("\n-- maximum resources for each process --")
+    max_need = [[int(i) for i in input(f"process {j + 1} : ").split()] for j in range(processes)]
+
+    allocated = [0] * resources
+    for i in range(processes):
+        for j in range(resources):
+            allocated[j] += currently_allocated[i][j]
+    print(f"\ntotal allocated resources : {allocated}")
+
+    available = [max_resources[i] - allocated[i] for i in range(resources)]
+    print(f"total available resources : {available}\n")
+
+    sequence=[]
+
+    running = [True] * processes
+    count = processes
+    while count != 0:
+        safe = False
+        for i in range(processes):
+            if running[i]:
+                executing = True
+                for j in range(resources):
+                    if max_need[i][j] - currently_allocated[i][j] > available[j]:
+                        executing = False
+                        break
+                if executing:
+                    print(f"process {i + 1} is executing")
+                    running[i] = False
+                    count -= 1
+                    safe = True
+                    for j in range(resources):
+                        available[j] += currently_allocated[i][j]
+                    sequence.append(i+1)
+                    break
+        if not safe:
+            print("the processes are in an unsafe state.")
+            break
+
+        print(f"the process is in a safe state.\navailable resources : {available}\n")
+    
+    print("The sequence is :")
+    s=""
+    for i in range (processes-1):
+        s+=f"P{sequence[i]} -> "
+    s+=f"P{sequence[processes-1]}"
+
+    print(s)
+
+
+if __name__ == '__main__':
+    main()
+
+
+
+----------------- BERKLEY
+
+def time(s):
+    ans = s.split(":")
+    return int(ans[0]) * 60 + int(ans[1]) + int(ans[2])/60
+
+slaves=int(input("Enter the number of clients : "))
+
+master = input("Enter the Time of master node : ")
+masterTime=time(master)
+print(masterTime)
+
+ls = []
+
+for i in range(slaves):
+    print(f"Enter the clock time for slave {i + 1} : ")
+    x = input()
+    print(time(x))
+    ls.append(time(x))
+
+def get_time(val):
+    hours = int(val // 60)
+    mins = int(val - hours * 60)
+    seconds = int((val - int(val)) * 60)
+    return str(hours) + ":" +  str(mins) + ":" + str(seconds)
+
+def berkeley_sync(master_time, client_times):
+    clients=[time-master_time for time in client_times]
+    print(clients)
+    avg_time = sum(clients) / (len(client_times)+1)
+    print(avg_time)
+
+    masterAdjustedTime=master_time+avg_time
+
+    adjusted_times = [masterAdjustedTime-time for time in client_times]
+
+    print(masterAdjustedTime)
+    print(get_time(masterAdjustedTime))
+
+    return adjusted_times,masterAdjustedTime
+
+ans, masterAdjustedTime=berkeley_sync(masterTime,ls)
+print(ans)
+for i in range(slaves):
+    print(f"Time for slave {i+1} : {get_time(ls[i]+ans[i])}")
+
+print(f"Time of master node : {get_time(masterAdjustedTime)}")
+
+
+----------------- BULLY
+
+class Process:
+    def __init__(self, _id, is_alive):
+        self.id = _id
+        self.is_alive = is_alive
+        self.status = "active" if is_alive else "inactive"
+
+class BullyAlgorithm:
+   def __init__(self, n, processes):
+     self.n = n
+     self.processes = processes
+     self.messages = []
+     self.responses = []
+
+   def initiate_election(self, initiator_id, is_initiator):
+      self.messages.append(f"\nProcess with ID {initiator_id} initiates the election!")
+      election_messages = []
+      for i in range(initiator_id + 1, self.n + 1):
+         if i <= self.n:
+            election_messages.append((initiator_id, i))
+            self.messages.append(f"Process {initiator_id} sends Election({initiator_id}) message to process {i}")
+            
+      for sender, receiver in election_messages:
+         if self.processes[receiver- 1].is_alive:
+            if not is_initiator or (is_initiator and receiver != initiator_id):
+               self.responses.append((receiver, initiator_id))
+    
+      if self.responses:
+         elected_coord = max(self.responses)[0]
+      else:
+         elected_coord = initiator_id
+      
+      return elected_coord
+   
+   def run_election(self, initiator_id):
+      elected_coord = initiator_id
+      
+      for i in range(initiator_id- 1, self.n):
+         if self.processes[i].is_alive:
+            if self.processes[i].id != initiator_id:
+               elected_coord = self.initiate_election(self.processes[i].id, False)
+            else:
+               elected_coord = self.initiate_election(initiator_id, True)
+      print('\n'.join(self.messages))
+      print("\nResponses:")
+      for response in self.responses:
+         print(f"Process {response[0]} responds with OK({response[1]}) message")
+      print(f"\nProcess {elected_coord} becomes the Coordinator!")
+
+
+if __name__ == "__main__":
+   n =int(input("Enter the total number of processes: "))
+   binary_string = input("Enter the binary string indicating which processes are alive (1) or dead (0): ")
+   processes = [Process(i + 1, int(bit)) for i, bit in enumerate(binary_string)]
+   print("\nProcesses:")
+   for process in processes:
+      print(f"Process {process.id}- {'Alive' if process.is_alive else 'Dead'}")
+   initiator_id = int(input(f"\nEnter the process ID that initiates the election (1-{n}): "))
+   bully_algorithm = BullyAlgorithm(n, processes)
+   bully_algorithm.run_election(initiator_id)
+
+
+
+----------------- GROUP COMMUNICATION
+
+# ******************************************* SERVER *******************************************
+
+import socket
+import threading
+
+def broadcast(message, clients):
+   for client in clients:
+       try:
+           client.send(message.encode('utf-8'))
+       except:
+           # Handle exceptions if a client connection is no longer valid
+           clients.remove(client)
+
+def handle_client(client_socket, clients):
+   while True:
+       try:
+           data = client_socket.recv(1024)
+           if not data:
+               break
+           message = data.decode('utf-8')
+           print(f"Received message: {message}")
+           broadcast(message, clients)
+       except:
+           # Handle exceptions if a client connection is no longer valid
+           clients.remove(client_socket)
+           break
+       
+def start_server():
+   server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+   server.bind(('0.0.0.0', 8888))
+   server.listen(5)
+   print("[*] Listening on 0.0.0.0:8888")
+   clients = []
+   while True:
+       client_socket, addr = server.accept()
+       print(f"[*] Accepted connection from {addr[0]}:{addr[1]}")
+       clients.append(client_socket)
+       client_handler = threading.Thread(target=handle_client, args=(client_socket, clients))
+       client_handler.start()
+
+if __name__ == "__main__":
+    start_server()
+
+
+# ******************************************* CLIENT 1 *******************************************
+
+import socket
+import threading
+
+def receive_messages(client_socket):
+   while True:
+       try:
+           data = client_socket.recv(1024)
+           if not data:
+               break
+           message = data.decode('utf-8')
+           print(f"\nReceived broadcast: {message}")
+       except:
+           break
+       
+def send_message(client_socket):
+   while True:
+       message = input("Enter message to broadcast (type 'exit' to quit): ")
+       if message.lower() == 'exit':
+           break
+       client_socket.send(message.encode('utf-8'))
+
+if __name__ == "__main__":
+   client1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+   client1.connect(('127.0.0.1', 8888))
+   receive_thread1 = threading.Thread(target=receive_messages, args=(client1,))
+   receive_thread1.start()
+   send_thread1 = threading.Thread(target=send_message, args=(client1,))
+   send_thread1.start()
+   receive_thread1.join()
+   send_thread1.join()
+   client1.close()
+
+
+
+# ******************************************* CLIENT 2 *******************************************
+
+import socket
+import threading
+
+def receive_messages(client_socket):
+   while True:
+       try:
+           data = client_socket.recv(1024)
+           if not data:
+               break
+           message = data.decode('utf-8')
+           print(f"\nReceived broadcast: {message}")
+       except:
+           break
+       
+def send_message(client_socket):
+   while True:
+       message = input("Enter message to broadcast (type 'exit' to quit): ")
+       if message.lower() == 'exit':
+           break
+       client_socket.send(message.encode('utf-8'))
+
+if __name__ == "__main__":
+   client2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+   client2.connect(('127.0.0.1', 8888))
+   receive_thread2 = threading.Thread(target=receive_messages, args=(client2,))
+   receive_thread2.start()
+   send_thread2 = threading.Thread(target=send_message, args=(client2,))
+   send_thread2.start()
+   receive_thread2.join()
+   send_thread2.join()
+   client2.close()
+
+
+
+----------------- GLOBAL AVEERAGING
+
+def time(s):
+    ans = s.split(":")
+    return int(ans[0]) * 60 + int(ans[1]) + int(ans[2])/60
+
+n = input("Enter the agreed clock time: ")
+
+init_val = time(n)
+
+nodes = int(input("Enter the number of nodes: "))
+
+dict_nodes = {}
+ls = []
+
+for i in range(nodes):
+    print(f"Enter the clock time for {i + 1} node : ")
+    x = input()
+    ls.append(time(x))
+    dict_nodes[chr(97 + i)] = []
+
+print()
+for key in dict_nodes.keys():
+    print(f"{key} : {dict_nodes[key]}")
+
+print()
+print(ls)
+
+for i in range(nodes):
+    val = -float('inf')
+    for i in range(nodes):
+        diff = ls[i] - init_val
+        dict_nodes[chr(97 + i)].append(diff)
+        if diff < 0:
+            val = max(val, diff)
+    for i in range(nodes):
+        if val != -float('inf'):
+            ls[i] += abs(val)
+    print()
+    print(*ls)
+
+print()
+for key in dict_nodes.keys():
+    print(f"{key} : {dict_nodes[key]}")
+
+for i in range(nodes):
+    avg = sum(dict_nodes[chr(97 + i)]) / nodes
+    if avg >= 0:
+        ls[i] -= abs(avg)
+    else:
+        ls[i] += abs(avg)
+
+print()
+print(ls)
+
+def get_time(val):
+    hours = int(val // 60)
+    mins = int(val - hours * 60)
+    seconds = int((val - int(val)) * 60)
+    return str(hours) + ":" +  str(mins) + ":" + str(seconds)
+
+for i in range(nodes):
+    print(f'Time for Node {chr(97 + i)} : ', get_time(ls[i]))
+
+
+----------------- INTERPROCESS COMMUNICATION
+
+# ********************************** SERVER *********************************
+
+import socket
+import threading
+def handle_client(client_socket):
+   data = client_socket.recv(1024)
+   if not data:
+       return
+   # Split the received string into individual integers
+   received_data = list(map(int, data.decode('utf-8').split(',')))
+   print(f"Received integers: {received_data}")
+   print(f"Sum of integers: {sum(received_data)}")
+   client_socket.close()
+def start_server():
+   server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+   server.bind(('0.0.0.0', 8888))
+   server.listen(5)
+   print("[*] Listening on 0.0.0.0:8888")
+   while True:
+       client_socket, addr = server.accept()
+       print(f"[*] Accepted connection from {addr[0]}:{addr[1]}")
+       client_handler = threading.Thread(target=handle_client, 
+args=(client_socket,))
+       client_handler.start()
+       
+if __name__ == "__main__":
+   server_thread = threading.Thread(target=start_server)
+   server_thread.start()
+
+
+# *************************************** CLIENT ************************************************
+
+# client.py
+import socket
+def send_data(target_ip, target_port, data):
+   client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+   client.connect((target_ip, target_port))
+   # Send integers as a comma-separated string
+   data_str = ','.join(map(str, data))
+   client.send(data_str.encode('utf-8'))
+   client.close()
+if __name__ == "__main__":
+   print("Enter 4 integers to send to the server:")
+   integers_to_send = []
+   for i in range(1, 5):
+       num = int(input(f"{i}: "))
+       integers_to_send.append(num)
+   # Simulate sending 4 integers from the client
+   send_data('127.0.0.1', 8888, integers_to_send)
+
+
+----------------- LOAD BALANCING
+
+import java.util.Scanner;
+
+public class exp7_loadBalancing {
+
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        System.out.print("Enter no of servers: ");
+        int numServers = sc.nextInt();
+        System.out.print("Enter no of processes: ");
+        int numProcesses = sc.nextInt();
+
+        while (true) {
+            printServerLoad(numServers, numProcesses);
+            displayMenu();
+            System.out.print("> ");
+            int choice = sc.nextInt();
+            int temp;
+
+            switch (choice) {
+                case 1:
+                    System.out.println("Enter number of servers to be added: ");
+                    temp = sc.nextInt();
+                    numServers += temp;
+                    break;
+                case 2:
+                    System.out.println("Enter number of servers to be removed: ");
+                    temp = sc.nextInt();
+                    numServers -= temp;
+                    break;
+                case 3:
+                    System.out.println("Enter number of processes to be added: ");
+                    temp = sc.nextInt();
+                    numProcesses += temp;
+                    break;
+                case 4:
+                    System.out.println("Enter number of processes to be removed: ");
+                    temp = sc.nextInt();
+                    numProcesses -= temp;
+                    break;
+                case 5:
+                    sc.close();
+                    return;
+                default:
+                    break;
+            }
+        }
+    }
+
+    static void printServerLoad(int numServers, int numProcesses) {
+        int processesPerServer = numProcesses / numServers;
+        int extraProcesses = numProcesses % numServers;
+
+        int i = 0;
+
+        // loop for extra process i.e adding 1 to each server
+        for (i = 0; i < extraProcesses; i++)
+            System.out.println("Server " + (i + 1) + " has " + (processesPerServer + 1) + " processes");
+
+        // loop for remaining processes
+        for (; i < numServers; i++)
+            System.out.println("Server " + (i + 1) + " has " + processesPerServer + " processes");
+    }
+
+    static void displayMenu() {
+        System.out.println("1. Add Server");
+        System.out.println("2. Remove Server");
+        System.out.println("3. Add Processes");
+        System.out.println("4. Remove Processes");
+        System.out.println("5. Exit");
+    }
+}
+
+
+----------------- MULTITHREADING
+
+# SAME AS GROUP COMMUNICATION CODE
+
+
+----------------- RAYMOND TREE BASED
+
+# no. of nodes
+n = 5
+
+request_queue = {0: [], 1: [], 2: [], 3: [], 4: []}
+holder = {0: 0, 1: 0, 2: 0, 3: 1, 4: 1}
+token = {0: 1, 1: 0, 2: 0, 3: 0, 4: 0}
+
+adj_matrix = [[1, 0, 0, 0, 0],
+              [1, 0, 0, 0, 0],
+              [1, 0, 0, 0, 0],
+              [0, 1, 0, 0, 0],
+              [0, 1, 0, 0, 0]]
+
+print("\nRaymond Tree Based Mutual Exclusion")
+print("\nAdjacency Matrix for spanning tree:\n")
+
+for i in adj_matrix:
+    print(*i)
+
+req_process = int(input("\nEnter the process who wants to enter CS : "))
+
+
+def find_parent(req_process):
+
+    request_queue[req_process].append(req_process)
+
+    for i in range(n):
+        if(adj_matrix[req_process][i] == 1):
+            parent = i
+            request_queue[parent].append(req_process)
+            break
+
+    print("\nProcess {} sending request to Parent Process {}".format(req_process, parent))
+    print("Request queue: ", request_queue)
+
+    if(token[parent] == 1):
+        return parent
+    else:
+        parent = find_parent(parent)
+
+    return parent
+
+
+parent = find_parent(req_process)
+
+while(token[req_process] != 1):
+
+    child = request_queue[parent][0]
+    request_queue[parent].pop(0)
+
+    holder[parent] = child
+    holder[child] = 0
+    token[parent] = 0
+    token[child] = 1
+
+    print("\nParent process {} has the token and sends the token to the request process {}".format(parent, child))
+    print("Request Queue: ", request_queue)
+    parent = child
+
+if(token[parent] == 1 and request_queue[parent][0] == parent):
+    request_queue[parent].pop(0)
+    holder[parent] = parent
+    print("\nProcess {} enter the Critical Section".format(parent))
+    print("Request Queue: ", request_queue)
+
+if(len(request_queue[parent]) == 0):
+    print("\nRequest Queue of process {} is empty. Therefore Release Critical Section".format(parent))
+
+print("\nHolder: ", holder)
+
+
+
+----------------- RICART AGRAWALA
+
+numProcesses = int(input("Enter number of processes: "))
+numCS = int(input("Enter Number of processes that want to enter CS: "))
+# timestamp: process
+processMap = {}
+timestamps = []
+for i in range(numCS):
+    process, timestamp = input(f"Enter the Process ID and Timestamp of process: ").split()
+    processMap[int(timestamp)] = int(process)
+    timestamps.append(int(timestamp))
+print()
+timestamps.sort()
+for time in timestamps:
+    processCS = processMap[time]
+    for i in range(numProcesses):
+        if(processCS != i):
+            print(f"Process {processCS} has requested Process {i}")
+    print()
+for time in timestamps:
+    processCS = processMap[time]
+    for i in range(numProcesses):
+        if(processCS != i):
+            print(
+                f"Process {i} has Accepted the request of process {processCS}")
+    print()
+    print(f'Process {processCS} has now entered the CS')
+    print(f'Process {processCS} has now exited the CS')
+    print()
+
+</pre>
+
+</body></html>
